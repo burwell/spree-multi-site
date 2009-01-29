@@ -8,7 +8,9 @@ namespace :db do
     end
     
     # Loading in all sample data into database.
-    site = Site.create(:name => "local", :domain => "localhost", :layout => "localhost")
+    Site.create(:name => "local", :domain => "localhost", :layout => "localhost")
+    # Adding Site.first in case a site is created via a yml file prior to this default site
+    site = Site.first
     site.products = Product.find(:all)
     site.taxonomies = Taxonomy.find(:all)
     site.orders = Order.find(:all)
