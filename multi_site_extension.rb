@@ -8,6 +8,23 @@ class MultiSiteExtension < Spree::Extension
   def activate
     # admin.tabs.add "Multi Site", "/admin/multi_site", :after => "Layouts", :visibility => [:all]
 
+    # Update the page title to use the title name given at the site level
+    ApplicationHelper.class_eval do
+      def page_title
+        title = @site.name || "Spree"
+        unless @page_title.blank? 
+          return "#{@page_title} - #{title}"
+        end
+        unless @product.nil?
+          return "#{@product.name} - #{title}"
+        end
+        unless @taxon.nil?
+          return "#{@taxon.name} - #{title}"
+        end
+        title
+      end
+    end
+
     #############################################################################
     # Overriding Spree Core Models
     Taxonomy.class_eval do
