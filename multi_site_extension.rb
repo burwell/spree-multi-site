@@ -44,7 +44,7 @@ class MultiSiteExtension < Spree::Extension
       layout :get_layout
       
       def get_layout
-        @site.layout.empty? ? "application" : @site.layout
+        current_site.layout.empty? ? "application" : current_site.layout
       end
 
       def find_order      
@@ -53,7 +53,7 @@ class MultiSiteExtension < Spree::Extension
         else      
           @order = Order.create
         end
-        @order.site = @site
+        @order.site = current_site
         session[:order_id] = @order.id
         @order
       end
@@ -63,11 +63,11 @@ class MultiSiteExtension < Spree::Extension
       before_filter :load_data
       private
       def load_data
-        @sites = @site.self_and_children
+        @sites = current_site.self_and_children
       end
       
       def collection
-        @collection = Taxonomy.by_site_with_children(@site)        
+        @collection = Taxonomy.by_site_with_children(current_site)        
       end
     end
     
@@ -76,7 +76,7 @@ class MultiSiteExtension < Spree::Extension
         if params[:q].blank?
           @available_taxons = []
         else
-          @available_taxons = @site.taxons.scoped(:conditions => ['lower(taxons.name) LIKE ?', "%#{params[:q].downcase}%"])
+          @available_taxons = current_site.taxons.scoped(:conditions => ['lower(taxons.name) LIKE ?', "%#{params[:q].downcase}%"])
         end
         @available_taxons.delete_if { |taxon| @product.taxons.include?(taxon) }
         respond_to do |format|
@@ -92,7 +92,7 @@ class MultiSiteExtension < Spree::Extension
         default_stop = (Date.today + 1).to_s(:db)
         @filter = params.has_key?(:filter) ? OrderFilter.new(params[:filter]) : OrderFilter.new
 
-        scope = Order.by_site_with_children(@site).scoped(:include => [:shipments, {:creditcards => :address}])
+        scope = Order.by_site_with_children(current_site).scoped(:include => [:shipments, {:creditcards => :address}])
         scope = scope.by_number @filter.number unless @filter.number.blank?
         scope = scope.by_customer @filter.customer unless @filter.customer.blank?
         scope = scope.between(@filter.start, (@filter.stop.blank? ? default_stop : @filter.stop)) unless @filter.start.blank?
@@ -109,7 +109,7 @@ class MultiSiteExtension < Spree::Extension
       before_filter :load_data
       private
       def load_data
-        @sites = @site.self_and_children
+        @sites = current_site.self_and_children
         @tax_categories = TaxCategory.find(:all, :order=>"name")  
         @shipping_categories = ShippingCategory.find(:all, :order=>"name")  
       end
@@ -121,15 +121,15 @@ class MultiSiteExtension < Spree::Extension
 
         if @sku.blank?
           if @deleted.blank?
-            @collection ||= end_of_association_chain.by_site_with_children(@site).active.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+            @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
           else
-            @collection ||= end_of_association_chain.by_site_with_children(@site).deleted.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})  
+            @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})  
           end
         else
           if @deleted.blank?
-            @collection ||= end_of_association_chain.by_site_with_children(@site).active.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+            @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
           else
-            @collection ||= end_of_association_chain.by_site_with_children(@site).deleted.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+            @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
           end
         end
       end  
@@ -141,13 +141,13 @@ class MultiSiteExtension < Spree::Extension
         if params[:taxon]
           @taxon = Taxon.find(params[:taxon])
 
-          @collection ||= Product.by_site(@site).active.find(
+          @collection ||= Product.by_site(current_site).active.find(
             :all, 
             :conditions => ["products.id in (select product_id from products_taxons where taxon_id in (" +  @taxon.descendents.inject( @taxon.id.to_s) { |clause, t| clause += ', ' + t.id.to_s} + "))" ], 
             :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, 
             :include => :images)
         else
-          @collection ||= Product.by_site(@site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
+          @collection ||= Product.by_site(current_site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
         end
       end
     end
@@ -155,7 +155,7 @@ class MultiSiteExtension < Spree::Extension
     TaxonsController.class_eval do
       private
       def load_data
-        @products ||= object.products.by_site(@site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
+        @products ||= object.products.by_site(current_site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
         @product_cols = 3
       end
     end
@@ -166,11 +166,11 @@ class MultiSiteExtension < Spree::Extension
     # Overriding Spree Helpers
     TaxonsHelper.class_eval do
       def taxon_preview(taxon)
-        products = taxon.products.by_site(@site).active[0..4]
+        products = taxon.products.by_site(current_site).active[0..4]
         return products unless products.size < 5
         if Spree::Config[:show_descendents]
           taxon.descendents.each do |taxon|
-            products += taxon.products.by_site(@site).active[0..4]
+            products += taxon.products.by_site(current_site).active[0..4]
             break if products.size >= 5
           end
         end
