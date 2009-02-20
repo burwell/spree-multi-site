@@ -1,6 +1,6 @@
 module MultiSiteSystem
   def current_site
-    @current_site ||= (get_site_from_request || get_site_from_session || false)
+    @current_site ||= (get_site_from_request || get_site_from_session || Site.first)
   end
   
   def current_site=(new_site)
