@@ -29,18 +29,18 @@ class MultiSiteExtension < Spree::Extension
     # Overriding Spree Core Models
     Taxonomy.class_eval do
       belongs_to :site
-      named_scope :by_site_with_children, lambda {|site| {:conditions => ["taxonomies.site_id in (?)", site.self_and_children]}}
+      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["taxonomies.site_id in (?)", site.self_and_descendants]}}
     end
 
     Product.class_eval do
       belongs_to :site
       named_scope :by_site, lambda {|site| {:conditions => ["products.site_id = ?", site.id]}}
-      named_scope :by_site_with_children, lambda {|site| {:conditions => ["products.site_id in (?)", site.self_and_children]}}
+      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["products.site_id in (?)", site.self_and_descendants]}}
     end
     
     Order.class_eval do
       belongs_to :site
-      named_scope :by_site_with_children, lambda {|site| {:conditions => ["orders.site_id in (?)", site.self_and_children]}}
+      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["orders.site_id in (?)", site.self_and_descendants]}}
     end
     #############################################################################
     
@@ -80,11 +80,11 @@ class MultiSiteExtension < Spree::Extension
       before_filter :load_data
       private
       def load_data
-        @sites = current_site.self_and_children
+        @sites = current_site.self_and_descendants
       end
       
       def collection
-        @collection = Taxonomy.by_site_with_children(current_site)        
+        @collection = Taxonomy.by_site_with_descendants(current_site)     
       end
     end
     
@@ -108,7 +108,7 @@ class MultiSiteExtension < Spree::Extension
       def collection   
         default_stop = (Date.today + 1).to_s(:db)
 
-        @search = Order.new_search(params[:search])
+        @search = Order.by_site_with_descendants(current_site).new_search(params[:search])
 
         if params[:search].nil? || params[:search][:conditions].nil?
           @search.conditions.checkout_complete = true
@@ -121,25 +121,14 @@ class MultiSiteExtension < Spree::Extension
         @search.per_page = Spree::Config[:orders_per_page]
 
         @collection = @search.find(:all, :include => [:user, :shipments, {:creditcards => :address}] )
-        
-        # scope = Order.by_site_with_children(current_site).scoped(:include => [:shipments, {:creditcards => :address}])
-        # scope = scope.by_number @filter.number unless @filter.number.blank?
-        # scope = scope.by_customer @filter.customer unless @filter.customer.blank?
-        # scope = scope.between(@filter.start, (@filter.stop.blank? ? default_stop : @filter.stop)) unless @filter.start.blank?
-        # scope = scope.by_state @filter.state.classify.downcase.gsub(" ", "_") unless @filter.state.blank?
-        # scope = scope.conditions "lower(addresses.firstname) LIKE ?", "%#{@filter.firstname.downcase}%" unless @filter.firstname.blank?
-        # scope = scope.conditions "lower(addresses.lastname) LIKE ?", "%#{@filter.lastname.downcase}%" unless @filter.lastname.blank?
-        # scope = scope.checkout_completed(@filter.checkout == '1' ? false : true)
-        # 
-        # @collection = scope.find(:all, :order => 'orders.created_at DESC', :include => :user, :page => {:size => Spree::Config[:orders_per_page], :current =>params[:p], :first => 1})
-      end
+     end
     end
     
     Admin::ProductsController.class_eval do
       before_filter :load_data
       private
       def load_data
-        @sites = current_site.self_and_children
+        @sites = current_site.self_and_descendants
         @tax_categories = TaxCategory.find(:all, :order=>"name")  
         @shipping_categories = ShippingCategory.find(:all, :order=>"name")  
       end
@@ -147,9 +136,9 @@ class MultiSiteExtension < Spree::Extension
       def collection
         #use the active named scope only if the 'show deleted' checkbox is unchecked
         if params[:search].nil? || params[:search][:conditions].nil? || params[:search][:conditions][:deleted_at_is_not_null].blank?
-          @search = end_of_association_chain.not_deleted.new_search(params[:search])
+          @search = end_of_association_chain.by_site_with_descendants(current_site).not_deleted.new_search(params[:search])
         else
-          @search = end_of_association_chain.new_search(params[:search])
+          @search = end_of_association_chain.by_site_with_descendents(current_site).new_search(params[:search])
         end
 
         #set order by to default or form result
@@ -159,27 +148,6 @@ class MultiSiteExtension < Spree::Extension
         @search.per_page = Spree::Config[:admin_products_per_page]
         @search.include = :images
         @collection = @search.all
-        
-        
-        
-        
-        # @name = params[:name] || ""
-        # @sku = params[:sku] || ""
-        # @deleted =  (params.key?(:deleted)  && params[:deleted] == "on") ? "checked" : ""
-        # 
-        # if @sku.blank?
-        #   if @deleted.blank?
-        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-        #   else
-        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})  
-        #   end
-        # else
-        #   if @deleted.blank?
-        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-        #   else
-        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-        #   end
-        # end
       end  
     end
   
