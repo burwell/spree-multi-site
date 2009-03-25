@@ -107,18 +107,31 @@ class MultiSiteExtension < Spree::Extension
       private
       def collection   
         default_stop = (Date.today + 1).to_s(:db)
-        @filter = params.has_key?(:filter) ? OrderFilter.new(params[:filter]) : OrderFilter.new
 
-        scope = Order.by_site_with_children(current_site).scoped(:include => [:shipments, {:creditcards => :address}])
-        scope = scope.by_number @filter.number unless @filter.number.blank?
-        scope = scope.by_customer @filter.customer unless @filter.customer.blank?
-        scope = scope.between(@filter.start, (@filter.stop.blank? ? default_stop : @filter.stop)) unless @filter.start.blank?
-        scope = scope.by_state @filter.state.classify.downcase.gsub(" ", "_") unless @filter.state.blank?
-        scope = scope.conditions "lower(addresses.firstname) LIKE ?", "%#{@filter.firstname.downcase}%" unless @filter.firstname.blank?
-        scope = scope.conditions "lower(addresses.lastname) LIKE ?", "%#{@filter.lastname.downcase}%" unless @filter.lastname.blank?
-        scope = scope.checkout_completed(@filter.checkout == '1' ? false : true)
+        @search = Order.new_search(params[:search])
 
-        @collection = scope.find(:all, :order => 'orders.created_at DESC', :include => :user, :page => {:size => Spree::Config[:orders_per_page], :current =>params[:p], :first => 1})
+        if params[:search].nil? || params[:search][:conditions].nil?
+          @search.conditions.checkout_complete = true
+        end
+
+        #set order by to default or form result
+        @search.order_by ||= :created_at
+        @search.order_as ||= "DESC"
+        #set results per page to default or form result
+        @search.per_page = Spree::Config[:orders_per_page]
+
+        @collection = @search.find(:all, :include => [:user, :shipments, {:creditcards => :address}] )
+        
+        # scope = Order.by_site_with_children(current_site).scoped(:include => [:shipments, {:creditcards => :address}])
+        # scope = scope.by_number @filter.number unless @filter.number.blank?
+        # scope = scope.by_customer @filter.customer unless @filter.customer.blank?
+        # scope = scope.between(@filter.start, (@filter.stop.blank? ? default_stop : @filter.stop)) unless @filter.start.blank?
+        # scope = scope.by_state @filter.state.classify.downcase.gsub(" ", "_") unless @filter.state.blank?
+        # scope = scope.conditions "lower(addresses.firstname) LIKE ?", "%#{@filter.firstname.downcase}%" unless @filter.firstname.blank?
+        # scope = scope.conditions "lower(addresses.lastname) LIKE ?", "%#{@filter.lastname.downcase}%" unless @filter.lastname.blank?
+        # scope = scope.checkout_completed(@filter.checkout == '1' ? false : true)
+        # 
+        # @collection = scope.find(:all, :order => 'orders.created_at DESC', :include => :user, :page => {:size => Spree::Config[:orders_per_page], :current =>params[:p], :first => 1})
       end
     end
     
@@ -132,23 +145,41 @@ class MultiSiteExtension < Spree::Extension
       end
       
       def collection
-        @name = params[:name] || ""
-        @sku = params[:sku] || ""
-        @deleted =  (params.key?(:deleted)  && params[:deleted] == "on") ? "checked" : ""
-
-        if @sku.blank?
-          if @deleted.blank?
-            @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-          else
-            @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})  
-          end
+        #use the active named scope only if the 'show deleted' checkbox is unchecked
+        if params[:search].nil? || params[:search][:conditions].nil? || params[:search][:conditions][:deleted_at_is_not_null].blank?
+          @search = end_of_association_chain.not_deleted.new_search(params[:search])
         else
-          if @deleted.blank?
-            @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-          else
-            @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
-          end
+          @search = end_of_association_chain.new_search(params[:search])
         end
+
+        #set order by to default or form result
+        @search.order_by ||= :name
+        @search.order_as ||= "ASC"
+        #set results per page to default or form result
+        @search.per_page = Spree::Config[:admin_products_per_page]
+        @search.include = :images
+        @collection = @search.all
+        
+        
+        
+        
+        # @name = params[:name] || ""
+        # @sku = params[:sku] || ""
+        # @deleted =  (params.key?(:deleted)  && params[:deleted] == "on") ? "checked" : ""
+        # 
+        # if @sku.blank?
+        #   if @deleted.blank?
+        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+        #   else
+        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})  
+        #   end
+        # else
+        #   if @deleted.blank?
+        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).active.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+        #   else
+        #     @collection ||= end_of_association_chain.by_site_with_children(current_site).deleted.by_name(@name).by_sku(@sku).find(:all, :order => :name, :page => {:start => 1, :size => Spree::Config[:admin_products_per_page], :current => params[:p]})
+        #   end
+        # end
       end  
     end
   
