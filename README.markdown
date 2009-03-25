@@ -21,6 +21,8 @@ In addition to having a new section in the admin to manage sites and their domai
 
 3. **Orders:** On the 'order listing' page, you will now see what site an order was placed on.  If you click into the details of the order you will also see what site the order was placed on in the 'Order Details' section.
 
+Note that sites are also now stored in a parent/child relationship using nested sets.  With this, an admin of a parent site is able to see orders and products for their site and all child sites.  
+
 # Installation
 
 To install the extension run:
@@ -36,6 +38,16 @@ rake db:migrate
 <pre>
 rake db:migrate
 rake spree:extensions:multi_site:bootstrap_multi_site
+</pre>
+
+Update "config/spree_permissions" file with the following so that an top level admin can give admin access to users at lower level sites:
+
+<pre>
+'Admin::BaseController':
+  permission1:
+    roles : [admin]
+    options :
+      unless : "current_user.is_a?(User) and current_user.has_role?('admin_' + current_site.name)"
 </pre>
 
 # To Do's

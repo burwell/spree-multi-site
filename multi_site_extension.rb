@@ -124,6 +124,22 @@ class MultiSiteExtension < Spree::Extension
      end
     end
     
+    Admin::ReportsController.class_eval do
+      def sales_total
+        @search = Order.by_site_with_descendants(current_site).new_search(params[:search])
+        #set order by to default or form result
+        @search.order_by ||= :created_at
+        @search.order_as ||= "DESC"
+
+        @orders = @search.find(:all)    
+
+        @item_total = @search.sum(:item_total)
+        @ship_total = @search.sum(:ship_amount)
+        @tax_total = @search.sum(:tax_amount)
+        @sales_total = @search.sum(:total)
+      end
+    end
+    
     Admin::ProductsController.class_eval do
       before_filter :load_data
       private
@@ -157,22 +173,32 @@ class MultiSiteExtension < Spree::Extension
         if params[:taxon]
           @taxon = Taxon.find(params[:taxon])
 
-          @collection ||= Product.by_site(current_site).active.find(
-            :all, 
-            :conditions => ["products.id in (select product_id from products_taxons where taxon_id in (" +  @taxon.descendents.inject( @taxon.id.to_s) { |clause, t| clause += ', ' + t.id.to_s} + "))" ], 
-            :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, 
-            :include => :images)
+          @search = Product.active.by_site(current_site).scoped(:conditions =>
+                                            ["products.id in (select product_id from products_taxons where taxon_id in (" +
+                                              @taxon.descendents.inject( @taxon.id.to_s) { |clause, t| clause += ', ' + t.id.to_s} + "))"
+                                            ]).new_search(params[:search])
         else
-          @collection ||= Product.by_site(current_site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
+          @search = Product.active.by_site(current_site).new_search(params[:search])
         end
+
+        @search.per_page = Spree::Config[:products_per_page]
+        @search.include = :images
+
+        @product_cols = 3
+        @products ||= @search.all    
+    
       end
     end
     
     TaxonsController.class_eval do
       private
-      def load_data
-        @products ||= object.products.by_site(current_site).active.find(:all, :page => {:start => 1, :size => Spree::Config[:products_per_page], :current => params[:p]}, :include => :images)
+      def load_data      
+        @search = object.products.active.by_site(current_site).new_search(params[:search])
+        @search.per_page = Spree::Config[:products_per_page]
+        @search.include = :images
+
         @product_cols = 3
+        @products ||= @search.all 
       end
     end
     #############################################################################
