@@ -25,8 +25,9 @@ Note that sites are also now stored in a parent/child relationship using nested 
 
 # Installation
 
-To install the extension run:
+To install:
 <pre>
+script/plugin install git://github.com/collectiveidea/awesome_nested_set.git  
 script/extension install git://github.com/tunagami/spree-multi-site.git
 </pre>
 
