@@ -105,39 +105,42 @@ class MultiSiteExtension < Spree::Extension
     
     Admin::OrdersController.class_eval do
       private
-      def collection   
-        default_stop = (Date.today + 1).to_s(:db)
+      def collection
+        @search = Order.search(params[:search])
+        @search = Order.by_site_with_descendants(current_site).search(params[:search])
+        @search.order ||= "descend_by_created_at"
 
-        @search = Order.by_site_with_descendants(current_site).new_search(params[:search])
+        # QUERY - get per_page from form ever???  maybe push into model
+        # @search.per_page ||= Spree::Config[:orders_per_page]
 
-        if params[:search].nil? || params[:search][:conditions].nil?
-          @search.conditions.checkout_complete = true
+        # turn on show-complete filter by default
+        unless params[:search] && params[:search][:checkout_completed_at_not_null]
+          @search.checkout_completed_at_not_null = true 
         end
 
-        #set order by to default or form result
-        @search.order_by ||= :created_at
-        @search.order_as ||= "DESC"
-        #set results per page to default or form result
-        @search.per_page = Spree::Config[:orders_per_page]
-
-        @collection = @search.find(:all, :include => [:user, :shipments, {:creditcards => :address}] )
-     end
+        @collection = @search.paginate(:include  => [:user, :shipments, {:creditcard_payments => {:creditcard => :address}}],
+                                       :per_page => Spree::Config[:orders_per_page], 
+                                       :page     => params[:page])
+      end      
+      
     end
     
     Admin::ReportsController.class_eval do
+            
       def sales_total
-        @search = Order.by_site_with_descendants(current_site).new_search(params[:search])
+        @search = Order.by_site_with_descendants(current_site).search(params[:search])
+
         #set order by to default or form result
-        @search.order_by ||= :created_at
-        @search.order_as ||= "DESC"
+        @search.order ||= "descend_by_created_at"
 
         @orders = @search.find(:all)    
 
         @item_total = @search.sum(:item_total)
-        @ship_total = @search.sum(:ship_amount)
-        @tax_total = @search.sum(:tax_amount)
+        @charge_total = @search.sum(:charge_total)
+        @credit_total = @search.sum(:credit_total)
         @sales_total = @search.sum(:total)
       end
+      
     end
     
     Admin::ProductsController.class_eval do
@@ -149,57 +152,69 @@ class MultiSiteExtension < Spree::Extension
         @shipping_categories = ShippingCategory.find(:all, :order=>"name")  
       end
       
+      
       def collection
-        #use the active named scope only if the 'show deleted' checkbox is unchecked
-        if params[:search].nil? || params[:search][:conditions].nil? || params[:search][:conditions][:deleted_at_is_not_null].blank?
-          @search = end_of_association_chain.by_site_with_descendants(current_site).not_deleted.new_search(params[:search])
-        else
-          @search = end_of_association_chain.by_site_with_descendents(current_site).new_search(params[:search])
+        base_scope = end_of_association_chain.by_site_with_descendents(current_site)
+
+        # Note: the SL scopes are on/off switches, so we need to select "not_deleted" explicitly if the switch is off
+        # QUERY - better as named scope or as SL scope?
+        if params[:search].nil? || params[:search][:deleted_at_not_null].blank?
+          base_scope = base_scope.not_deleted
         end
 
-        #set order by to default or form result
-        @search.order_by ||= :name
-        @search.order_as ||= "ASC"
-        #set results per page to default or form result
-        @search.per_page = Spree::Config[:admin_products_per_page]
-        @search.include = :images
-        @collection = @search.all
-      end  
+        @search = base_scope.search(params[:search])
+        @search.order ||= "ascend_by_name"
+
+        @collection = @search.paginate(:include  => {:variants => :images},
+                                       :per_page => Spree::Config[:admin_products_per_page], 
+                                       :page     => params[:page])
+      end      
+      
     end
   
     ProductsController.class_eval do    
-      private
+      private      
+      
       def collection
-        if params[:taxon]
-          @taxon = Taxon.find(params[:taxon])
+        base_scope = Product.active.by_site(current_site)
 
-          @search = Product.active.by_site(current_site).scoped(:conditions =>
-                                            ["products.id in (select product_id from products_taxons where taxon_id in (" +
-                                              @taxon.descendents.inject( @taxon.id.to_s) { |clause, t| clause += ', ' + t.id.to_s} + "))"
-                                            ]).new_search(params[:search])
-        else
-          @search = Product.active.by_site(current_site).new_search(params[:search])
+        if !params[:taxon].blank? && (@taxon = Taxon.find_by_id(params[:taxon]))
+          base_scope = base_scope.taxons_id_in_tree(@taxon)
         end
 
-        @search.per_page = Spree::Config[:products_per_page]
-        @search.include = :images
+        @search = base_scope.search(params[:search])
+        # might want to add .scoped(:select => "distinct on (products.id) products.*") here
+        # in case some filter goes astray with its joins
 
-        @product_cols = 3
-        @products ||= @search.all    
-    
+        # this can now be set on a model basis 
+        # Product.per_page ||= Spree::Config[:products_per_page]
+
+        ## defunct?
+        @product_cols = 3 
+
+        @products ||= @search.paginate(:include  => [:images, {:variants => :images}],
+                                       :per_page => params[:per_page] || Spree::Config[:products_per_page],
+                                       :page     => params[:page])
       end
+      
     end
     
     TaxonsController.class_eval do
       private
-      def load_data      
-        @search = object.products.active.by_site(current_site).new_search(params[:search])
-        @search.per_page = Spree::Config[:products_per_page]
-        @search.include = :images
+            
+      def load_data
+        @search = object.products.active.by_site(current_site).search(params[:search])
 
+        ## push into model?
+        ## @search.per_page ||= Spree::Config[:products_per_page]
+
+        @products ||= @search.paginate(:include  => [:images, {:variants => :images}],
+                                       :per_page => Spree::Config[:products_per_page],
+                                       :page     => params[:page])
+        ## defunct?
         @product_cols = 3
-        @products ||= @search.all 
       end
+            
     end
     #############################################################################
     
