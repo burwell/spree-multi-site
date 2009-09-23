@@ -154,7 +154,7 @@ class MultiSiteExtension < Spree::Extension
       
       
       def collection
-        base_scope = end_of_association_chain.by_site_with_descendents(current_site)
+        base_scope = end_of_association_chain.by_site_with_descendants(current_site)
 
         # Note: the SL scopes are on/off switches, so we need to select "not_deleted" explicitly if the switch is off
         # QUERY - better as named scope or as SL scope?
