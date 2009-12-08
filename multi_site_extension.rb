@@ -1,4 +1,4 @@
-require_dependency 'application'
+require_dependency 'application_controller'
 
 class MultiSiteExtension < Spree::Extension
   version "1.0"
@@ -56,12 +56,13 @@ class MultiSiteExtension < Spree::Extension
     end
     
     Spree::BaseController.class_eval do
+	    include MultiSiteSystem
       before_filter :get_site_and_products
       
       layout :get_layout
       
       def get_layout
-        current_site.layout.empty? ? "application" : current_site.layout
+        current_site.layout.empty? ? "spree_application" : current_site.layout
       end
 
       def find_order      
