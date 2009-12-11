@@ -3,7 +3,7 @@ require_dependency 'application_controller'
 class MultiSiteExtension < Spree::Extension
   version "1.0"
   description "Extention that will allow the store to support multiple sites each having their own taxonomies, products and orders"
-  url "git://github.com/tunagami/spree-multi-site.git"
+  url "git://github.com/kerinin/spree-multi-site.git"
 
   def activate
     # admin.tabs.add "Multi Site", "/admin/multi_site", :after => "Layouts", :visibility => [:all]
@@ -27,21 +27,16 @@ class MultiSiteExtension < Spree::Extension
 
     #############################################################################
     # Overriding Spree Core Models
-    Taxonomy.class_eval do
-      belongs_to :site
-      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["taxonomies.site_id in (?)", site.self_and_descendants]}}
+    
+    for c in MultiSiteSystem.site_scoped_classes do
+      c.class_eval do
+        table_name = c.table_name.to_s
+        belongs_to :site
+        named_scope :by_site, lambda {|site| {:conditions => ["?.site_id = ?", table_name, site.id] }}
+        named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["?.site_id in (?)",table_name, site.self_and_descendants] }}
+      end
     end
 
-    Product.class_eval do
-      belongs_to :site
-      named_scope :by_site, lambda {|site| {:conditions => ["products.site_id = ?", site.id]}}
-      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["products.site_id in (?)", site.self_and_descendants]}}
-    end
-    
-    Order.class_eval do
-      belongs_to :site
-      named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["orders.site_id in (?)", site.self_and_descendants]}}
-    end
     #############################################################################
     
 
@@ -58,6 +53,7 @@ class MultiSiteExtension < Spree::Extension
     Spree::BaseController.class_eval do
 	    include MultiSiteSystem
       before_filter :get_site_and_products
+      around_filter :scope_to_site
       
       layout :get_layout
       
@@ -74,6 +70,24 @@ class MultiSiteExtension < Spree::Extension
         @order.site = current_site
         session[:order_id] = @order.id
         @order
+      end
+      
+      private
+      def scope_to_site(&block)
+        scope_to_site_recursion MultiSiteSystem.site_scoped_classes.dup do block.call end
+      end
+      
+      def scope_to_site_recursion(class_list, &block)
+        if class_list.empty?
+          yield
+        else
+          c = class_list.pop
+          c.send(:with_scope, {
+            :find => { :conditions => ["?.site_id in (?)", c.table_name.to_s, @current_site.self_and_descendants]},
+            :create => { :site => @current_site }
+          }) { scope_to_site_recursion class_list do block.call end }
+          #scope_to_site_recursion class_list do block end
+        end
       end
     end
 
@@ -107,7 +121,7 @@ class MultiSiteExtension < Spree::Extension
     Admin::OrdersController.class_eval do
       private
       def collection
-        @search = Order.search(params[:search])
+        #@search = Order.search(params[:search])
         @search = Order.by_site_with_descendants(current_site).search(params[:search])
         @search.order ||= "descend_by_created_at"
 
@@ -177,7 +191,8 @@ class MultiSiteExtension < Spree::Extension
       private      
       
       def collection
-        base_scope = Product.active.by_site(current_site)
+        #base_scope = Product.active.by_site_with_descendants(current_site)
+        base_scope = Product.active
 
         if !params[:taxon].blank? && (@taxon = Taxon.find_by_id(params[:taxon]))
           base_scope = base_scope.taxons_id_in_tree(@taxon)

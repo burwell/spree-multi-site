@@ -1,4 +1,12 @@
 module MultiSiteSystem
+  def site_scoped_classes
+	  #[Asset, Calculator, Configuration, Coupon, OptionType, Order, Preference,
+	  #Product, ProductGroup, Prototype, Property, ShippingCategory, ShippingMethod,
+	  #TaxCategory, Taxonomy, Variant, Zone]
+    [Product, ProductGroup, Taxonomy, Order]
+  end
+  module_function :site_scoped_classes
+
   def current_site
     @current_site ||= (get_site_from_request || get_site_from_session || Site.first)
   end
