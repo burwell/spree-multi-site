@@ -1,7 +1,6 @@
 require File.dirname(__FILE__) + '/../test_helper'
  
 class SiteTest < Test::Unit::TestCase
-
 	context "A site hierarchy" do
 		setup do
 			@parent = Factory.create(:site)
@@ -16,11 +15,7 @@ class SiteTest < Test::Unit::TestCase
 			@child2.move_to_child_of @site
 			@site.move_to_child_of @parent
 		end
-		
-		should "load awesome_nested_set" do
-			assert CollectiveIdea::Acts::NestedSet
-		end
-		
+
 		should "be an awesome_nested_set" do
 			assert_not_nil @parent.root
 			assert @parent.valid?

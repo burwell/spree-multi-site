@@ -34,9 +34,6 @@ class ProductsControllerTest < ActionController::TestCase
     #should_not_set_the_flash
 		
 		should "products should be filtered" do
-			#assert_includes @site_product, assigns(:products)
-      #assert_includes @child1_product, assigns(:products)
-      #deny_includes @parent_product, assigns(:products)
       assert assigns["products"].include? @site_product
       assert assigns["products"].include? @child1_product
       assert assigns["products"].include? @leaf_product

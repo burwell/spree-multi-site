@@ -1,4 +1,4 @@
-class AddSiteToProductGroups < ActiveRecord::Migration
+class AddSiteProductGroups < ActiveRecord::Migration
   def self.up
 	add_column :product_groups, :site_id, :integer
   end

@@ -30,8 +30,22 @@ class MultiSiteExtension < Spree::Extension
     
     for c in MultiSiteSystem.site_scoped_classes do
       c.class_eval do
-        table_name = c.table_name.to_s
         belongs_to :site
+      
+        table_name = c.table_name.to_s
+
+        def site=(newsite)
+          self.sites.delete
+            
+          if newsite
+            newsite.inherit_from( self.class ).each do |s|
+              sites << s
+            end 
+          end
+          
+          self.site_id = newsite.id
+        end
+      
         named_scope :by_site, lambda {|site| {:conditions => ["?.site_id = ?", table_name, site.id] }}
         named_scope :by_site_with_descendants, lambda {|site| {:conditions => ["?.site_id in (?)",table_name, site.self_and_descendants] }}
       end
@@ -67,7 +81,7 @@ class MultiSiteExtension < Spree::Extension
         else      
           @order = Order.create
         end
-        @order.site = current_site
+        @order.primary_site = current_site
         session[:order_id] = @order.id
         @order
       end
@@ -83,10 +97,10 @@ class MultiSiteExtension < Spree::Extension
         else
           c = class_list.pop
           c.send(:with_scope, {
-            :find => { :conditions => ["?.site_id in (?)", c.table_name.to_s, @current_site.self_and_descendants]},
+            #:find => { :conditions => ["?.site_id in (?)", c.name.tableize, @current_site.inherit_from( c ) ]},
+	    :find => { :conditions => ["SELECT o.id FROM ? o WHERE EXISTS ( SELECT 1 FROM objects_sites s WHERE s.object_id = o.id AND s.site_id = ?",c.name.tableize, @current_site.id ] },
             :create => { :site => @current_site }
           }) { scope_to_site_recursion class_list do block.call end }
-          #scope_to_site_recursion class_list do block end
         end
       end
     end
@@ -191,7 +205,6 @@ class MultiSiteExtension < Spree::Extension
       private      
       
       def collection
-        #base_scope = Product.active.by_site_with_descendants(current_site)
         base_scope = Product.active
 
         if !params[:taxon].blank? && (@taxon = Taxon.find_by_id(params[:taxon]))

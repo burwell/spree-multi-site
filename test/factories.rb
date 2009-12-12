@@ -57,6 +57,8 @@ Factory.define :site do |f|
   f.name "Site Name"
   f.sequence(:domain) {|n| "domain#{n}.com" }
   f.layout "spree_application"
+  f.ancestors_inherit_products true
+  f.descendants_inherit_products true
 end
 
 Factory.define :tax_category do |t|
