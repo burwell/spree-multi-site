@@ -6,28 +6,35 @@ class SiteTest < Test::Unit::TestCase
 		setup do
 			anc = true
 			des = true
-			@base = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
-			@branch1 = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
-			@branch2 = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
+			@parent = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
+			@site = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
+			@sibling = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
+      @child = Factory.create( :site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
 			@leaf = Factory.create(:site, :ancestors_inherit_products => anc, :descendants_inherit_products => des)
 			
-			@leaf.move_to_child_of @branch1
-			@branch1.move_to_child_of @base
-			@branch2.move_to_child_of @base
+			@leaf.move_to_child_of @child
+			@child.move_to_child_of @site
+			@site.move_to_child_of @parent
+      @sibling.move_to_child_of @parent
 			
 			#@instance = Factory.create( :product, :site => @branch1)
 		end
 		
+    teardown do
+      Site.delete_all
+    end
+    
 		should "include ancestors products" do
-			assert_contains @base.inherit_from( Product ), @branch1
+			assert_contains @site.inherit_from( Product ), @parent
 		end
 		
 		should "include descendants products" do
-			assert_contains @leaf.inherit_from( Product ), @branch1
+			assert_contains @site.inherit_from( Product ), @child
+      assert_contains @site.inherit_from( Product ), @leaf
 		end
 		
 		should "exclude siblings products" do
-			assert !( @branch2.inherit_from( Product ).include? @branch1 )
+			assert !( @site.inherit_from( Product ).include? @sibling )
 		end
 	end
 	
@@ -45,7 +52,11 @@ class SiteTest < Test::Unit::TestCase
 					
 					@instance = Factory.create( HClass.name.downcase, :site => @branch1)
 				end
-				
+        
+        teardown do
+          Site.delete_all
+        end			
+    
 				should "have an associated site" do
 					assert_equal( @branch1, @instance.site )
 				end

@@ -35,11 +35,11 @@ class MultiSiteExtension < Spree::Extension
         table_name = c.table_name.to_s
 
         def site=(newsite)
-          self.sites.delete
+          sites.clear
             
           if newsite
             newsite.inherit_from( self.class ).each do |s|
-              sites << s
+              sites.push s
             end 
           end
           
@@ -98,8 +98,10 @@ class MultiSiteExtension < Spree::Extension
           c = class_list.pop
           c.send(:with_scope, {
             #:find => { :conditions => ["?.site_id in (?)", c.name.tableize, @current_site.inherit_from( c ) ]},
-	    :find => { :conditions => ["SELECT o.id FROM ? o WHERE EXISTS ( SELECT 1 FROM objects_sites s WHERE s.object_id = o.id AND s.site_id = ?",c.name.tableize, @current_site.id ] },
-            :create => { :site => @current_site }
+            #:find => { :conditions => ["SELECT o.id FROM ? o WHERE EXISTS ( SELECT 1 FROM objects_sites WHERE objects_sites.object_id = o.id AND objects_sites.site_id = ? )",c.name.tableize, @current_site.id ] },
+            #:find => { :conditions => ["?.id in (?)", c.name.tableize, @current_site.send(c.name.tableize)] },
+            :find => { :conditions => ["?.id IN ( SELECT object_id FROM objects_sites WHERE 'objects_sites'.site_id = ? )", c.name.tableize, @current_site.id ] },
+            #:create => { :site => @current_site }
           }) { scope_to_site_recursion class_list do block.call end }
         end
       end
