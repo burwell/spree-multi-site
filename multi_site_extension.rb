@@ -81,7 +81,7 @@ class MultiSiteExtension < Spree::Extension
         else      
           @order = Order.create
         end
-        @order.primary_site = current_site
+        #@order.primary_site = current_site
         session[:order_id] = @order.id
         @order
       end
@@ -97,10 +97,7 @@ class MultiSiteExtension < Spree::Extension
         else
           c = class_list.pop
           c.send(:with_scope, {
-            #:find => { :conditions => ["?.site_id in (?)", c.name.tableize, @current_site.inherit_from( c ) ]},
-            #:find => { :conditions => ["SELECT o.id FROM ? o WHERE EXISTS ( SELECT 1 FROM objects_sites WHERE objects_sites.object_id = o.id AND objects_sites.site_id = ? )",c.name.tableize, @current_site.id ] },
-            #:find => { :conditions => ["?.id in (?)", c.name.tableize, @current_site.send(c.name.tableize)] },
-            :find => { :conditions => ["?.id IN ( SELECT object_id FROM objects_sites WHERE 'objects_sites'.site_id = ? )", c.name.tableize, @current_site.id ] },
+            :find => { :conditions => ["?.id IN ( SELECT object_id FROM objects_sites WHERE 'objects_sites'.object_type = ? AND 'objects_sites'.site_id = ? )", c.name.tableize, c.name.to_s, @current_site.id ] },
             #:create => { :site => @current_site }
           }) { scope_to_site_recursion class_list do block.call end }
         end

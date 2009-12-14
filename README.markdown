@@ -1,6 +1,6 @@
-# Squeejee Spree Multi-Site Extension
+# Kerinin Spree Multi-Site Extension
 
-The extension will allow you to setup multiple sites with one spree installation.  It gives you the ability to have different domains that direct to different stores with different layouts.  Orders, taxonomies and products will all be site specific entities now.
+The extension will allow you to setup multiple sites with one spree installation.  It gives you the ability to have different domains that direct to different stores with different layouts.  This is a fork of Tungami's extension (via squeejee and eastmedia). Orders, taxonomies, products and product groups can be inherited via the site tree in either direction.
 
 # Site Overview
 
@@ -8,7 +8,7 @@ To administer all of the sites go to `/admin/sites`.  There you can create a sit
 
 1. **Name:** Each site needs a name defined for it.  It is used purely for display purposes in the admin tool.  It _can_ be used in a _layout_ template as well.
 
-2. **Domain:** Each site requires a domain to tell which site it should display.  So, if you want a site on _www.spreeshopping.com_ you would enter in that domain name here.  It will identify the site regardless of what port number you are coming in on (_3000_ which is the default for the development, _80_ for http, and _443_ for https).
+2. **Domain:** Each site requires a unique domain to tell which site it should display.  So, if you want a site on _www.spreeshopping.com_ you would enter in that domain name here.  It will identify the site regardless of what port number you are coming in on (_3000_ which is the default for the development, _80_ for http, and _443_ for https).
 
 3. **Layout _(optional)_:** If you want a different layout for your site, you enter in the layout name here.  Example: 'localhost' would look for the layout 'localhost.html.erb' in your `app/views/layout` directory.  In addition, if nothing is provided, it will use the default 'application' layout.
 
@@ -21,14 +21,23 @@ In addition to having a new section in the admin to manage sites and their domai
 
 3. **Orders:** On the 'order listing' page, you will now see what site an order was placed on.  If you click into the details of the order you will also see what site the order was placed on in the 'Order Details' section.
 
-Note that sites are also now stored in a parent/child relationship using nested sets.  With this, an admin of a parent site is able to see orders and products for their site and all child sites.  
+# Differences from Tungami's  extension
+
+1. **Nested Sets** Note that sites are now stored in a parent/child relationship using nested sets.  
+
+2. **Inheritance Options** Each site has two inheritance options (for each inheritable object class): *:ancestors_inherit_***class** and *:descendants_inherit_***class**.  If *:ancestors_inherit_products* is true, than any ancestors of a given site will be able to view/edit that site's products (but only direct ancestors).  If *:descendants_inherit_products* is true, any descendants of a given site will be able to view/edit that site's products.
+
+3. **Scoping** The base controller has been extended to execute any request within a :with_scope call which handles scoping objects.  It shouldn't be necessary to tinker with individual controllers unless additional access control (ie allow read but not write) is needed.
 
 # Installation
 
+***DO NOT INSTALL THIS OVER AN EXISTING MULTI-SITE DATABASE*** - This has not been tested to properly migrate existing data and will likely cause significant damage to an existing multi-site database
+
 To install:
 <pre>
+script/plugin install git://github.com/fauna/has_many_polymorphs.git
 script/plugin install git://github.com/collectiveidea/awesome_nested_set.git  
-script/extension install git://github.com/tunagami/spree-multi-site.git
+script/extension install git://github.com/kerinin/spree-multi-site.git
 </pre>
 
 If you haven't already "bootstrapped" the spree database, when you run the bootstrap rake task, all of the the schemas and sample data will be created/updated.  If you just want to install the table schema and not use the sample data you can just run the rake task:
@@ -50,6 +59,3 @@ Update "config/spree_permissions" file with the following so that an top level a
     options :
       unless : "current_user.is_a?(User) and current_user.has_role?('admin_' + current_site.name)"
 </pre>
-
-# To Do's
-+ Potentially allow products & taxonomies to be associated with multiple sites _(If this makes sense to do)_ 
