@@ -104,6 +104,14 @@ class MultiSiteExtension < Spree::Extension
       end
     end
 
+    Admin::BaseController.class_eval do
+      before_filter :add_site_tab
+
+      def add_site_tab 
+        @extension_tabs <<  [ :sites ] 
+      end
+    end
+      
     Admin::TaxonomiesController.class_eval do
       before_filter :load_data
       private

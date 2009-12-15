@@ -11,9 +11,12 @@ namespace :db do
     Site.create(:name => "local", :domain => "localhost:3000", :layout => "spree_application")
     # Adding Site.first in case a site is created via a yml file prior to this default site
     site = Site.first
-    site.products = Product.find(:all)
-    site.taxonomies = Taxonomy.find(:all)
-    site.orders = Order.find(:all)
+    for C in MultiSiteSystem.site_scoped_classes do
+      C.all.each do |o| 
+        o.site = site 
+        o.save!
+      end
+    end
     site.save
     
   end
@@ -44,9 +47,12 @@ namespace :spree do
       task :bootstrap_multi_site => :environment do
         # Loading in all sample data into database.
         site = Site.create(:name => "local", :domain => "localhost", :layout => "localhost")
-        site.products = Product.find(:all)
-        site.taxonomies = Taxonomy.find(:all)
-        site.orders = Order.find(:all)
+        for C in MultiSiteSystem.site_scoped_classes do
+          C.all.each do |o| 
+            o.site = site 
+            o.save!
+          end
+        end
         site.save
       end  
     end

@@ -25,7 +25,7 @@ In addition to having a new section in the admin to manage sites and their domai
 
 1. **Nested Sets** Note that sites are now stored in a parent/child relationship using nested sets.  
 
-2. **Inheritance Options** Each site has two inheritance options (for each inheritable object class): *:ancestors_inherit_***class** and *:descendants_inherit_***class**.  If *:ancestors_inherit_products* is true, than any ancestors of a given site will be able to view/edit that site's products (but only direct ancestors).  If *:descendants_inherit_products* is true, any descendants of a given site will be able to view/edit that site's products.
+2. **Inheritance Options** Each site has two inheritance options (for each inheritable object class): :ancestors\_inherit\_*class* and :descendants\_inherit\_*class*.  If *:ancestors\_inherit\_products* is true, than any ancestors of a given site will be able to view/edit that site's products (but only direct ancestors).  If *:descendants\_inherit\_products* is true, any descendants of a given site will be able to view/edit that site's products.
 
 3. **Scoping** The base controller has been extended to execute any request within a :with_scope call which handles scoping objects.  It shouldn't be necessary to tinker with individual controllers unless additional access control (ie allow read but not write) is needed.
 
