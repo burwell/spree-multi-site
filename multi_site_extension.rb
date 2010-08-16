@@ -56,13 +56,16 @@ class MultiSiteExtension < Spree::Extension
     end
     
     Spree::BaseController.class_eval do
-	    include MultiSiteSystem
+      include MultiSiteSystem
       before_filter :get_site_and_products
+      before_filter :set_view_paths
       
       layout :get_layout
+
+      private
       
       def get_layout
-        current_site.layout.empty? ? "spree_application" : current_site.layout
+        current_site.layout.blank? ? "spree_application" : current_site.layout
       end
 
       def find_order      
@@ -74,6 +77,17 @@ class MultiSiteExtension < Spree::Extension
         @order.site = current_site
         session[:order_id] = @order.id
         @order
+      end
+
+      def set_view_paths
+        ext_loader = Spree::ExtensionLoader.instance
+        multi_site_view_path = ext_loader.view_paths.detect{|p| p =~ /multi_site/ }
+
+        custom_view_paths = []
+        custom_view_paths << File.join(multi_site_view_path, "sites", current_site.layout) if current_site.try(:layout).present?
+        custom_view_paths << File.join(multi_site_view_path, "default")
+
+        prepend_view_path(custom_view_paths)
       end
     end
 
