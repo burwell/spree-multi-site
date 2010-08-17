@@ -63,15 +63,23 @@ class MultiSiteExtension < Spree::Extension
     
     Spree::BaseController.class_eval do
       include MultiSiteSystem
+      helper_method :current_site
+
       before_filter :get_site_and_products
       before_filter :set_view_paths
-      
+
       layout :get_layout
 
       private
-      
+
       def get_layout
-        current_site.layout.blank? ? "spree_application" : current_site.layout
+        if current_site.layout.blank? ||
+           view_paths.none?{|p| Dir[File.join(p, "layouts", "#{ current_site.layout }.*")].present? }
+        then
+          "spree_application"
+        else
+          current_site.layout
+        end
       end
 
       def find_order      
